@@ -1,6 +1,7 @@
 import streamlit as st
 import asyncio
 import io
+import openpyxl
 from playwright_setup import ensure_playwright_installed
 from lead_scanner import scan_leads
 
@@ -151,15 +152,18 @@ if scan_button:
                         mime="text/csv"
                     )
                 with col2:
-                    excel_buffer = io.BytesIO()
-                    results_df.to_excel(excel_buffer, index=False, engine='openpyxl')
-                    excel_buffer.seek(0)
-                    st.download_button(
-                        label="📥 Download Excel",
-                        data=excel_buffer.getvalue(),
-                        file_name="leads.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
+                    try: 
+                        excel_buffer = io.BytesIO()
+                        results_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                        excel_buffer.seek(0)
+                        st.download_button(
+                            label="📥 Download Excel",
+                            data=excel_buffer.getvalue(),
+                            file_name="leads.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    except Exception as e:
+                        st.error(f"Excel export failed: {e}")
             else:
                 if not blocked_by_airbnb:
                     st.warning("⚠️ No leads found. The profiles may not match the target criteria.")
