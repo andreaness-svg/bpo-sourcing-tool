@@ -19,8 +19,14 @@ def _playwright_browser_present() -> bool:
             return True
     return False
 
+
 def ensure_playwright_installed() -> bool:
-    """Ensure Playwright Chromium is installed without re-running heavy setup."""
+    """Ensure Playwright Chromium is installed without re-running heavy setup.
+
+    This function validates that the Playwright package is importable and that a
+    Chromium browser binary is available. It will attempt to install the browser
+    if it's not present. Only mark setup as done on success.
+    """
     global _SETUP_DONE
     if _SETUP_DONE:
         return True
@@ -41,6 +47,7 @@ def ensure_playwright_installed() -> bool:
     except Exception as e:
         print(f"Warning: Could not install Playwright: {e}")
         return False
-    finally:
-        _SETUP_DONE = True
+
+    # Only set the flag when setup completed without exception
+    _SETUP_DONE = True
     return True
