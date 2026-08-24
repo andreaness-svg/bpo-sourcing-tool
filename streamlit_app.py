@@ -5,9 +5,9 @@ import openpyxl
 from playwright_setup import ensure_playwright_installed
 from lead_scanner import scan_leads
 
-st.set_page_config(page_title="Lead Scanner", layout="wide")
-st.title("🎯 Lead Generation Scanner")
-st.write("Scan Airbnb host profiles to identify potential leads with property information.")
+st.set_page_config(page_title="Airbnb Listing Location Scanner", layout="wide")
+st.title("🎯 Airbnb Listing Location Scanner")
+st.write("Paste Airbnb listing URLs to open their publicly shared locations in Google Maps.")
 
 st.divider()
 
@@ -23,13 +23,13 @@ if not st.session_state.playwright_ready:
     st.stop()
 
 # Input section
-st.subheader("📝 Input Host URLs")
+st.subheader("📝 Input Airbnb Listing URLs")
 col1, col2 = st.columns([3, 1])
 with col1:
     urls_input = st.text_area(
-        "Enter Airbnb host profile URLs (one per line):",
+        "Enter Airbnb listing URLs (one per line):",
         height=150,
-        placeholder="https://www.airbnb.com/users/show/123456789\nhttps://www.airbnb.com/users/show/987654321"
+        placeholder="https://www.airbnb.com/rooms/123456789\nhttps://www.airbnb.com/rooms/987654321"
     )
 with col2:
     st.write("")
@@ -77,10 +77,10 @@ if scan_button:
         st.error("Please enter at least one URL to scan.")
     else:
         urls = [_normalize_url(url) for url in urls_input.split('\n') if url.strip()]
-        st.info(f"Scanning {len(urls)} host profile(s)... This may take a few minutes.")
+        st.info(f"Scanning {len(urls)} Airbnb listing(s)... This may take a few minutes.")
         
         try:
-            with st.spinner("🔍 Scanning profiles..."):
+            with st.spinner("🔍 Scanning listings..."):
                 results_df = _run_scan(urls)
 
             scan_stats = results_df.attrs.get("scan_stats", {})
@@ -112,13 +112,12 @@ if scan_button:
             if scan_stats:
                 st.caption(
                     "Scanner heartbeat: "
-                    f"hosts total {scan_stats.get('hosts_total', 0)}, "
-                    f"hosts scanned {scan_stats.get('hosts_scanned', 0)}, "
-                    f"hosts skipped {scan_stats.get('hosts_skipped', 0)}, "
-                    f"hosts auth blocked {scan_stats.get('hosts_auth_blocked', 0)}, "
-                    f"rooms scanned {scan_stats.get('rooms_scanned', 0)}, "
-                    f"rooms skipped {scan_stats.get('rooms_skipped', 0)}, "
-                    f"rooms auth blocked {scan_stats.get('rooms_auth_blocked', 0)}"
+                    f"listings total {scan_stats.get('listings_total', 0)}, "
+                    f"mapped {scan_stats.get('listings_mapped', 0)}, "
+                    f"without a public location {scan_stats.get('listings_without_location', 0)}, "
+                    f"invalid {scan_stats.get('listings_invalid', 0)}, "
+                    f"Airbnb blocked {scan_stats.get('listings_auth_blocked', 0)}, "
+                    f"errors {scan_stats.get('listing_errors', 0)}"
                 )
             
             if len(results_df) > 0:
@@ -132,6 +131,10 @@ if scan_button:
                 
                 # Display results
                 st.subheader("📊 Results")
+                st.caption(
+                    "Airbnb may publish an approximate map pin rather than an exact address. "
+                    "Use the Location Precision column when reviewing results."
+                )
                 st.dataframe(
                     results_df,
                     use_container_width=True,

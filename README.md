@@ -1,69 +1,56 @@
-# � Evolve Mera Lead Generation Tool
+# Evolve BPO Airbnb Listing Location Tool
 
-An automated lead scanner for identifying property owners through Airbnb host profiles.
+A Streamlit tool that turns public Airbnb listing URLs into clickable Google Maps locations.
 
 ## Features
 
-✨ **Smart Lead Scanning** - Analyzes host bios for ownership indicators
-📍 **Geolocation Mapping** - Extracts precise property addresses and coordinates
-🗺️ **Google Maps Integration** - Direct links to property locations
-📊 **Data Export** - Download leads as CSV or Excel
-⚡ **Async Processing** - Fast, efficient multi-threaded scanning
+- Accepts one or more Airbnb `/rooms/<listing-id>` URLs.
+- Extracts the listing's publicly shared latitude and longitude.
+- Labels the public pin as exact or approximate when Airbnb supplies that metadata.
+- Reverse-geocodes the public pin into a reviewable address.
+- Provides direct Airbnb and Google Maps links.
+- Exports the results to CSV or Excel.
 
-## Requirements
-
-- Python 3.8+
-- Playwright (with Chromium browser)
-- Pandas for data processing
-- Geopy for geocoding
+Airbnb may show an approximate public map pin instead of an exact property location. The
+tool reports the public pin's precision and does not present an approximate result as a
+confirmed exact address.
 
 ## Installation
 
-1. Clone the repository
-   ```bash
-   git clone https://github.com/merarichardson-create/evolve-mera-lead-tool.git
-   cd evolve-mera-lead-tool
-   ```
+1. Clone the repository.
+2. Install the dependencies:
 
-2. Install dependencies
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Install Playwright browser
+3. Install the Playwright browser:
+
    ```bash
    playwright install chromium
    ```
 
 ## Usage
 
-Run the Streamlit app:
 ```bash
 streamlit run streamlit_app.py
 ```
 
-The app will open in your browser. Enter Airbnb host profile URLs and click "Scan Leads" to begin.
+Paste one Airbnb listing URL per line and select **Scan Leads**.
 
-### How It Works
+Example:
 
-1. **Input URLs** - Paste Airbnb host profile links
-2. **Bio Scanning** - Checks for ownership keywords
-3. **Property Detection** - Extracts associated property listings
-4. **Location Mapping** - Identifies exact addresses via geolocation
-5. **Export Results** - Download lead data in your preferred format
-
-## Example URLs
-
-```
-https://www.airbnb.com/users/show/123456789
-https://www.airbnb.com/users/show/987654321
+```text
+https://www.airbnb.com/rooms/1699533136478015821
+https://www.airbnb.com/rooms/602028875740552381
 ```
 
-## Keywords Detected
+## Tests
 
-The scanner identifies owners based on these keywords in their bio:
-- "my home", "our home", "owner", "we own", "my villa", "my business", "local", "own and operate"
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## License
 
-See LICENSE file for details.
+See [LICENSE](LICENSE).
