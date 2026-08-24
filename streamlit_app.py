@@ -2,12 +2,16 @@ import streamlit as st
 import asyncio
 import io
 import openpyxl
+import pandas as pd
 from playwright_setup import ensure_playwright_installed
 from lead_scanner import scan_leads
 
-st.set_page_config(page_title="Airbnb Listing Location Scanner", layout="wide")
-st.title("🎯 Airbnb Listing Location Scanner")
-st.write("Paste Airbnb listing URLs to open their publicly shared locations in Google Maps.")
+st.set_page_config(page_title="Airbnb Account & Listing Scanner", layout="wide")
+st.title("🎯 Airbnb Account & Listing Scanner")
+st.write(
+    "Paste Airbnb co-host profiles or individual listing URLs to find publicly "
+    "shared listings and open their locations in Google Maps."
+)
 
 st.divider()
 
@@ -23,18 +27,21 @@ if not st.session_state.playwright_ready:
     st.stop()
 
 # Input section
-st.subheader("📝 Input Airbnb Listing URLs")
+st.subheader("📝 Input Airbnb URLs")
 col1, col2 = st.columns([3, 1])
 with col1:
     urls_input = st.text_area(
-        "Enter Airbnb listing URLs (one per line):",
+        "Enter Airbnb co-host profile or listing URLs (one per line):",
         height=150,
-        placeholder="https://www.airbnb.com/rooms/123456789\nhttps://www.airbnb.com/rooms/987654321"
+        placeholder=(
+            "https://www.airbnb.com/co-hosts/profile/123456789\n"
+            "https://www.airbnb.com/rooms/987654321"
+        )
     )
 with col2:
     st.write("")
     st.write("")
-    scan_button = st.button("🚀 Scan Leads", use_container_width=True)
+    scan_button = st.button("🚀 Scan Accounts & Listings", use_container_width=True)
 
 st.divider()
 
@@ -77,19 +84,19 @@ if scan_button:
         st.error("Please enter at least one URL to scan.")
     else:
         urls = [_normalize_url(url) for url in urls_input.split('\n') if url.strip()]
-        st.info(f"Scanning {len(urls)} Airbnb listing(s)... This may take a few minutes.")
+        st.info(
+            f"Scanning {len(urls)} Airbnb account/listing URL(s)... "
+            "This may take a few minutes."
+        )
         
         try:
-            with st.spinner("🔍 Scanning listings..."):
+            with st.spinner("🔍 Finding account listings and public map locations..."):
                 results_df = _run_scan(urls)
 
             scan_stats = results_df.attrs.get("scan_stats", {})
+            profile_summaries = results_df.attrs.get("profile_summaries", [])
             blocked_by_airbnb = bool(results_df.attrs.get("blocked_by_airbnb", False))
             fatal_error = str(results_df.attrs.get("fatal_error", "") or "").strip()
-            has_public_fallback_links = (
-                "Address" in results_df.columns
-                and results_df["Address"].astype(str).str.contains("Public .*link only", case=False, regex=True).any()
-            )
 
             if fatal_error:
                 st.warning(
@@ -98,21 +105,18 @@ if scan_button:
                 )
 
             if blocked_by_airbnb:
-                if has_public_fallback_links:
-                    st.warning(
-                        "Airbnb is returning 401/403 for this runtime. "
-                        "Public Airbnb links are shown below, but full lead enrichment is temporarily blocked."
-                    )
-                else:
-                    st.warning(
-                        "Airbnb is currently returning 401/403 for this runtime, so no leads could be fetched right now. "
-                        "Try again later or use a different network/IP."
-                    )
+                st.warning(
+                    "Airbnb blocked at least one profile or listing lookup. "
+                    "Any public results that were available are shown below."
+                )
 
             if scan_stats:
                 st.caption(
                     "Scanner heartbeat: "
-                    f"listings total {scan_stats.get('listings_total', 0)}, "
+                    f"accounts {scan_stats.get('profiles_total', 0)}, "
+                    f"account-reported listings {scan_stats.get('reported_listings_total', 0)}, "
+                    f"public listing links found {scan_stats.get('public_listing_links_found', 0)}, "
+                    f"listings scanned {scan_stats.get('listings_total', 0)}, "
                     f"mapped {scan_stats.get('listings_mapped', 0)}, "
                     f"without a public location {scan_stats.get('listings_without_location', 0)}, "
                     f"invalid {scan_stats.get('listings_invalid', 0)}, "
@@ -120,10 +124,38 @@ if scan_button:
                     f"errors {scan_stats.get('listing_errors', 0)}"
                 )
             
-            if len(results_df) > 0:
-                st.success(f"✅ Found {len(results_df)} leads!")
+            if profile_summaries:
+                profile_df = pd.DataFrame(profile_summaries)
+                if "Account Profile" in profile_df.columns:
+                    profile_df["Account Profile"] = profile_df["Account Profile"].apply(
+                        _safe_http_url
+                    )
+                st.subheader("👤 Account Summary")
+                st.caption(
+                    "Reported Listings comes from Airbnb's account page. Public Listing "
+                    "Links Found shows how many listing pages Airbnb exposed to the scanner."
+                )
+                st.dataframe(
+                    profile_df,
+                    use_container_width=True,
+                    column_config={
+                        "Account Profile": st.column_config.LinkColumn(
+                            "Airbnb Account", display_text="Open account"
+                        )
+                    },
+                )
 
-                # Prevent invalid values (e.g., "N/A") from being rendered as broken links.
+            if len(results_df) > 0:
+                st.success(
+                    f"✅ Mapped {scan_stats.get('listings_mapped', 0)} of "
+                    f"{scan_stats.get('listings_total', 0)} public listings!"
+                )
+
+                # Prevent invalid values from being rendered as broken links.
+                if "Account Profile" in results_df.columns:
+                    results_df["Account Profile"] = results_df["Account Profile"].apply(
+                        _safe_http_url
+                    )
                 if "Maps" in results_df.columns:
                     results_df["Maps"] = results_df["Maps"].apply(_safe_http_url)
                 if "Link" in results_df.columns:
@@ -133,12 +165,15 @@ if scan_button:
                 st.subheader("📊 Results")
                 st.caption(
                     "Airbnb may publish an approximate map pin rather than an exact address. "
-                    "Use the Location Precision column when reviewing results."
+                    "Use the Location Precision column and manually verify every result."
                 )
                 st.dataframe(
                     results_df,
                     use_container_width=True,
                     column_config={
+                        "Account Profile": st.column_config.LinkColumn(
+                            "Airbnb Account", display_text="Open account"
+                        ),
                         "Maps": st.column_config.LinkColumn("Google Maps", display_text="Open map"),
                         "Link": st.column_config.LinkColumn("Airbnb Listing", display_text="Open listing"),
                     },
@@ -151,7 +186,7 @@ if scan_button:
                     st.download_button(
                         label="📥 Download CSV",
                         data=csv,
-                        file_name="leads.csv",
+                        file_name="airbnb_listing_locations.csv",
                         mime="text/csv"
                     )
                 with col2:
@@ -162,14 +197,14 @@ if scan_button:
                         st.download_button(
                             label="📥 Download Excel",
                             data=excel_buffer.getvalue(),
-                            file_name="leads.xlsx",
+                            file_name="airbnb_listing_locations.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
                     except Exception as e:
                         st.error(f"Excel export failed: {e}")
             else:
                 if not blocked_by_airbnb:
-                    st.warning("⚠️ No leads found. The profiles may not match the target criteria.")
+                    st.warning("⚠️ No public Airbnb listing links were found.")
                 
         except Exception as e:
             err_text = str(e)
