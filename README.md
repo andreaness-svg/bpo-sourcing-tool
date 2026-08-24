@@ -13,6 +13,9 @@ also supported.
 - Labels the public pin as exact or approximate when Airbnb supplies that metadata.
 - Reverse-geocodes the public pin into a reviewable address.
 - Provides direct Airbnb and Google Maps links.
+- Counts the profiles Airbnb currently reports for pasted city/state pairs.
+- Paces directory lookups with randomized delays, batch cooldowns, exponential
+  backoff, Retry-After support, and an automatic stop on repeated blocks.
 - Exports the results to CSV or Excel.
 
 Airbnb may show an approximate public map pin instead of an exact property location. The
@@ -42,6 +45,12 @@ streamlit run streamlit_app.py
 
 Paste one Airbnb co-host profile or listing URL per line and select
 **Scan Accounts & Listings**.
+
+For directory counts, paste one `City, State` pair per line under
+**Airbnb Directory City Counter**. Use batches of 50 or fewer. The default
+8–14 second delay and periodic cooldown are intentionally conservative. These
+controls reduce request pressure but cannot guarantee Airbnb will never limit a
+scan.
 
 Example:
 
