@@ -31,6 +31,50 @@ class DirectoryScannerTests(unittest.TestCase):
         selected = select_location_suggestion("Lihue", "HI", suggestions)
         self.assertEqual(selected["location"]["id"], "city-id")
 
+    def test_rejects_same_named_city_in_wrong_state(self):
+        suggestions = [
+            {
+                "location": {"id": "wrong-state"},
+                "suggestion": {
+                    "mainText": "Portland",
+                    "secondaryText": "ME, USA",
+                },
+            }
+        ]
+        self.assertIsNone(
+            select_location_suggestion("Portland", "OR", suggestions)
+        )
+
+    def test_supports_common_city_and_territory_aliases(self):
+        suggestions = [
+            {
+                "location": {"id": "new-york"},
+                "suggestion": {
+                    "mainText": "New York",
+                    "secondaryText": "NY, USA",
+                },
+            },
+            {
+                "location": {"id": "canberra"},
+                "suggestion": {
+                    "mainText": "Canberra",
+                    "secondaryText": "Australian Capital Territory, Australia",
+                },
+            },
+        ]
+        self.assertEqual(
+            select_location_suggestion("New York City", "NY", suggestions)[
+                "location"
+            ]["id"],
+            "new-york",
+        )
+        self.assertEqual(
+            select_location_suggestion("Canberra", "ACT", suggestions)[
+                "location"
+            ]["id"],
+            "canberra",
+        )
+
     def test_counts_profiles_from_public_directory_total(self):
         def request_json(url):
             if "QueryAutocompleteLocation" in url:

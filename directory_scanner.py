@@ -110,29 +110,49 @@ def _normalize(value: str) -> str:
     return " ".join((value or "").lower().replace(".", "").split())
 
 
+def _city_aliases(city: str) -> list[str]:
+    normalized = _normalize(city)
+    aliases = [normalized]
+    if normalized.endswith(" city"):
+        aliases.append(normalized[:-5].strip())
+    if normalized.endswith(" island"):
+        aliases.append(normalized[:-7].strip())
+    if normalized == "washington dc":
+        aliases.append("washington")
+    return list(dict.fromkeys(aliases))
+
+
+def _state_matches(state: str, secondary_text: str) -> bool:
+    wanted_state = _normalize(state)
+    secondary = _normalize(secondary_text).replace(",", " ")
+    secondary = " ".join(secondary.split())
+    tokens = set(secondary.split())
+    if wanted_state in tokens:
+        return True
+    long_names = {
+        "act": "australian capital territory",
+        "dc": "district of columbia",
+        "nsw": "new south wales",
+    }
+    long_name = long_names.get(wanted_state)
+    return bool(long_name and f" {long_name} " in f" {secondary} ")
+
+
 def select_location_suggestion(city: str, state: str, suggestions: Iterable[dict]):
     """Choose the exact city/state suggestion, never a street-level fallback."""
-    wanted_city = _normalize(city)
-    wanted_state = _normalize(state)
-    fallback = None
+    wanted_cities = _city_aliases(city)
 
-    for item in suggestions:
-        suggestion = item.get("suggestion") or {}
-        main_text = _normalize(suggestion.get("mainText", ""))
-        secondary_text = _normalize(suggestion.get("secondaryText", ""))
-        if main_text != wanted_city:
-            continue
-        if fallback is None:
-            fallback = item
-        secondary_tokens = {
-            token.strip()
-            for token in secondary_text.replace(",", " ").split()
-            if token.strip()
-        }
-        if wanted_state in secondary_tokens:
-            return item
+    for wanted_city in wanted_cities:
+        for item in suggestions:
+            suggestion = item.get("suggestion") or {}
+            main_text = _normalize(suggestion.get("mainText", ""))
+            secondary_text = suggestion.get("secondaryText", "")
+            if main_text != wanted_city:
+                continue
+            if _state_matches(state, secondary_text):
+                return item
 
-    return fallback
+    return None
 
 
 def _extract_suggestions(payload: dict) -> list:
