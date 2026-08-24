@@ -1,6 +1,13 @@
 import unittest
 
-from lead_scanner import build_maps_url, extract_listing_id, extract_public_location
+from lead_scanner import (
+    build_maps_url,
+    extract_cohost_profile_id,
+    extract_listing_id,
+    extract_profile_listing_count,
+    extract_public_location,
+    extract_room_ids,
+)
 
 
 class LeadScannerParsingTests(unittest.TestCase):
@@ -14,6 +21,40 @@ class LeadScannerParsingTests(unittest.TestCase):
     def test_rejects_non_listing_url(self):
         self.assertIsNone(extract_listing_id("https://example.com/rooms/123"))
         self.assertIsNone(extract_listing_id("https://www.airbnb.com/users/show/123"))
+
+    def test_extracts_cohost_profile_id(self):
+        url = (
+            "https://www.airbnb.com/co-hosts/profile/1243754975929178209"
+            "?no_redirect=1&location_id=example"
+        )
+        self.assertEqual(
+            extract_cohost_profile_id(url),
+            "1243754975929178209",
+        )
+
+    def test_rejects_non_cohost_profile_url(self):
+        self.assertIsNone(
+            extract_cohost_profile_id("https://example.com/co-hosts/profile/123")
+        )
+        self.assertIsNone(
+            extract_cohost_profile_id("https://www.airbnb.com/rooms/123")
+        )
+
+    def test_extracts_reported_listing_count(self):
+        text = (
+            "11 listings\nMy service area\n"
+            "I support 11 listings and can help hosts in Huntsville.\n"
+            "Show all 11 listings"
+        )
+        self.assertEqual(extract_profile_listing_count(text), 11)
+
+    def test_extracts_unique_room_ids_in_page_order(self):
+        content = (
+            '<a href="/rooms/111">First</a>'
+            '<a href="/rooms/222?source=profile">Second</a>'
+            '<a href="/rooms/111">First repeated</a>'
+        )
+        self.assertEqual(extract_room_ids(content), ["111", "222"])
 
     def test_extracts_current_airbnb_coordinate_fields(self):
         content = (
